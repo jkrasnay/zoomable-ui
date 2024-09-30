@@ -1,6 +1,149 @@
 <!doctype html>
 <html>
-  <body>
-    <p>Hello, world!</p>
+  <head>
+    <title>Zooming and Panning - Zoomable UI</title>
+    <link rel="stylesheet" href="/site.css">
+    <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body class="step-page">
+    <div class="description">
+      <div class="copy">
+
+        <h1>Zooming and Panning</h1>
+
+        <p>
+          Try scrolling around in the diagram to the right.  Hold the Ctrl key while scrolling
+          to zoom in and out.  On mobile/tablet, use two-finger scroll to pan and pinch-to-zoom.
+        </p>
+
+        <h2>Virtual DOM</h2>
+
+        <p>
+          We start with a discussion about using a virtual DOM library.  I think this by
+          far the easiest way to implement a zoomable UI, or really any highly interactive
+          browser-based UI.
+        </p>
+
+        <p>
+          To implement an interactive UI you really need to render your UI in two different ways.
+        </p>
+
+        <ul>
+          <li>Render all your HTML when the UI is first displayed.
+          <li>As the user interacts with your UI, tweak various parts of the DOM accordingly.
+        </ul>
+
+        <p>
+          It's that second part that really gets difficult when your UI increases
+          in complexity.  You <em>could</em> just re-render the inner HTML of
+          your root element every time but this is too slow and would look
+          terrible.  A virtual DOM (vDOM) library allows you to just do the first part,
+          and let the library worry about the second part.  The trick is to build
+          a JavaScript data structure (the virtual DOM) that matches your desired
+          HTML/DOM structure and let the virtual DOM library make the minimal
+          changes required to the actual browser DOM match.
+        </p>
+
+        <p>
+          In this tutorial we use <a href="https://preactjs.com/">Preact</a>, but you can use React or
+          whatever vDOM library you're comfortable with.  For something super lightweight you
+          can try <a href="https://github.com/lazamar/smvc">SMVC</a>.
+        </p>
+
+        <p>
+          The application life-cycle looks something like this.
+        </p>
+
+        <ul>
+          <li>We start with a data structure called the <em>state</em> that represents
+            the data we are visualizing along with information about how it is to be
+            displayed, such as the position of various visual components.
+
+          <li>We pass the state to our <em>Diagram</em> component, which renders our
+            virtual DOM, typically with the help of some sub-components.
+
+          <li>As the user interacts with the diagram, the browser triggers <em>browser
+            events</em>, which we handle by updating the state.
+
+          <li>Our vDOM library notices the state change and builds a new virtual DOM
+            by calling our Diagram component again.
+
+          <li>
+            The vDOM library then updates the browser's DOM to match the new virtual DOM.
+        </ul>
+
+        <p>
+          This tutorial use's Preact's <code>useReducer</code> hook to implement this
+          lifecycle.
+        </p>
+
+        <h2>Canvas and Diagram Space</h2>
+
+        <p>
+          In this step, our state consists of just the current zoom level and pan position
+          that we update by hooking the <code>wheel</code> event.  Our Diagram component
+          uses the state to render something like this:
+        </p>
+
+        <pre>
+&lt;div class="zui-canvas" draggable=false&gt;
+  &lt;div class="zui-diagram" style="transform: scale(1) translate(0,0); transform-origin: top left"&gt;
+    &lt;!-- shapes go here --&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+
+        <p>
+          The zoom and pan position are interpolated into the CSS transform on the <code>zui-diagram</code>
+          element.  Using a CSS transform for this allows the browser to use the GPU to accelerate
+          drawing our shapes.
+        </p>
+
+        <p>
+          The CSS transform we use creates a coordinate system for the `div.diagram` element that's
+          different from the coordinate system for the `div.canvas` element.  We will need to convert
+          between these coordinate system to properly pan and zoom the diagram.   Note that the CSS
+          `transform` propery applies its transformations is reverse order, implying the following the
+          following relationship between \(x_c\) (the x-coordinate for a point in canvas space) and
+          \(x_d\) (the x-coordinate for the point in diagram space).
+        </p>
+
+        $$ x_c = (x_d + x_{pan}) \cdot zoom $$
+
+        $$ x_d = \frac{x_c}{zoom} - x_{pan} $$
+
+        <p>
+          The y-coordinates are similarly related.
+        </p>
+
+        <p>
+          These equations come in handy when properly handling zoom changes.
+          When we zoom, we want the zoom to happen around the current point of
+          the cursor.  This requires is to adjust the pan simultaneously, such
+          that the tip of the cursor in canvas space continues to align with
+          the same point in diagram space after the zoom change.  Let
+          \(x_{pan0}\) and \(zoom_0\) represent the pan and zoom before the
+          change and \(x_{pan1}\) and \(zoom_1\) represent the pan and zoom
+          after. Equating \(x_d\) before and after the change, we get the
+          following.
+        </p>
+
+        $$ \frac{x_c}{zoom_1} - x_{pan1} = \frac{x_c}{zoom_0} - x_{pan0} $$
+
+        $$ - x_{pan1} = \frac{x_c}{zoom_0} - x_{pan0} - \frac{x_c}{zoom_1} $$
+
+        $$ x_{pan1} = x_{pan0} + \frac{x_c}{zoom_1} - \frac{x_c}{zoom_0}$$
+
+      </div>
+    </div>
+
+    <div class="diagram">
+    </div>
+
+    <script type="module">
+      import { h, render } from 'https://esm.sh/preact';
+      import { Diagram } from './step1.js';
+      render(h(Diagram, {}), document.getElementsByClassName('diagram')[0]);
+    </script>
+
   </body>
 </html>
